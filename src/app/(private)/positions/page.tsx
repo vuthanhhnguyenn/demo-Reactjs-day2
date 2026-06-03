@@ -1,6 +1,6 @@
 "use client";
 
-import {Suspense, useMemo} from "react";
+import {Suspense, useMemo, useState} from "react";
 import {useQuery} from "@tanstack/react-query";
 
 import {getCrmPositionsOptions, type GetCrmPositionsResponse,} from "@/lib/api/@tanstack/react-query.gen";
@@ -12,8 +12,12 @@ import {PositionsFilters} from "./_components/positions-filters";
 import {PositionsSummary} from "./_components/positions-summary";
 import {PositionsTable} from "./_components/positions-table";
 import {usePositionsFilters} from "./_hooks/use-positions-filters";
+import {CreatePositionDialog} from "./_components/create-position-dialog";
+import type { CreatePositionFormValues } from "./_schemas/create-position.schema";
 
 type Position = GetCrmPositionsResponse["positions"][number];
+
+
 
 function PositionsPageContent() {
     const {filters, setFilters, clearFilters} =
@@ -22,9 +26,12 @@ function PositionsPageContent() {
     const {data, isLoading, isError} = useQuery({
         ...getCrmPositionsOptions(),
     });
-
-    const positions = useMemo(() => data?.positions ?? [], [data?.positions]);
-
+    const [createdPositions, setCreatedPositions] = useState<Position[]>([]);
+    const positions = useMemo(
+        () => [...(data?.positions ?? []), ...createdPositions],
+        [data?.positions, createdPositions],
+    );
+  
     const filteredPositions = useMemo(() => {
         return positions.filter((position) => {
             const search = filters.search.trim().toLowerCase();
@@ -53,16 +60,35 @@ function PositionsPageContent() {
     function handleCloseDialog() {
         void setFilters({id: null});
     }
+    function handleCreatePosition(values: CreatePositionFormValues) {
+        const nextId =
+        positions.length === 0
+        ? 1
+        : Math.max(...positions.map((position) => position.id)) + 1;
 
+        const newPosition: Position = {
+            id: nextId,
+            role: values.role,
+            position_name: values.position_name,
+            features: {
+            description: values.description,
+            ...Object.fromEntries(
+            values.permissions.map((permission) => [permission, true]),),
+            },
+        };
+
+        setCreatedPositions((current) => [...current, newPosition]);
+    }
     return (
         <section className="space-y-6">
             <div>
-                <h1 className="text-2xl font-semibold">Tra cứu chức vụ
-                    nhân viên</h1>
+                <h1 className="text-2xl font-semibold">Tra cứu chức vụ nhân viên</h1>
                 <p className="text-muted-foreground">
                     Tìm kiếm chức vụ và xem chi tiết quyền hạn.
                 </p>
             </div>
+
+            <CreatePositionDialog onCreatePosition = {handleCreatePosition} />
 
             <PositionsSummary
                 totalPositions={positions.length}
