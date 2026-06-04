@@ -1,5 +1,8 @@
+import { Redis } from "@upstash/redis";
+
 import {
   type CreatePositionRequest,
+  GetPositionsResponseSchema,
   type Position,
   PositionSchema,
   type UpdatePositionRequest,
@@ -12,7 +15,10 @@ type PositionsStore = {
 
 const globalForPositions = globalThis as typeof globalThis & {
   __positionsDemoStore?: PositionsStore;
+  __positionsDemoRedis?: Redis;
 };
+
+const POSITIONS_REDIS_KEY = "positions-demo:positions";
 
 function cloneInitialPositions() {
   return mockPositions.map((position) =>
@@ -28,6 +34,29 @@ function cloneInitialPositions() {
 const store = (globalForPositions.__positionsDemoStore ??= {
   positions: cloneInitialPositions(),
 });
+
+function hasRedisEnv() {
+  return Boolean(
+    (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) ||
+      (process.env.UPSTASH_REDIS_REST_URL &&
+        process.env.UPSTASH_REDIS_REST_TOKEN),
+  );
+}
+
+function getRedis() {
+  if (!hasRedisEnv()) {
+    return null;
+  }
+
+  if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+    return (globalForPositions.__positionsDemoRedis ??= new Redis({
+      url: process.env.KV_REST_API_URL,
+      token: process.env.KV_REST_API_TOKEN,
+    }));
+  }
+
+  return (globalForPositions.__positionsDemoRedis ??= Redis.fromEnv());
+}
 
 function buildPosition(
   id: number,
@@ -46,45 +75,82 @@ function buildPosition(
   });
 }
 
-export function listPositions() {
-  return store.positions;
+async function readPositions() {
+  const redis = getRedis();
+
+  if (!redis) {
+    return store.positions;
+  }
+
+  const positions = await redis.get<Position[]>(POSITIONS_REDIS_KEY);
+
+  if (positions) {
+    return GetPositionsResponseSchema.parse({ positions }).positions;
+  }
+
+  const initialPositions = cloneInitialPositions();
+  await redis.set(POSITIONS_REDIS_KEY, initialPositions);
+
+  return initialPositions;
 }
 
-export function createPosition(values: CreatePositionRequest) {
+async function writePositions(positions: Position[]) {
+  const redis = getRedis();
+  const parsedPositions = GetPositionsResponseSchema.parse({
+    positions,
+  }).positions;
+
+  if (!redis) {
+    store.positions = parsedPositions;
+    return;
+  }
+
+  await redis.set(POSITIONS_REDIS_KEY, parsedPositions);
+}
+
+export async function listPositions() {
+  return readPositions();
+}
+
+export async function createPosition(values: CreatePositionRequest) {
+  const positions = await readPositions();
   const nextId =
-    store.positions.length === 0
+    positions.length === 0
       ? 1
-      : Math.max(...store.positions.map((position) => position.id)) + 1;
+      : Math.max(...positions.map((position) => position.id)) + 1;
 
   const position = buildPosition(nextId, values);
-  store.positions.push(position);
+  await writePositions([...positions, position]);
 
   return position;
 }
 
-export function updatePosition(values: UpdatePositionRequest) {
-  const index = store.positions.findIndex(
-    (position) => position.id === values.id,
-  );
+export async function updatePosition(values: UpdatePositionRequest) {
+  const positions = await readPositions();
+  const index = positions.findIndex((position) => position.id === values.id);
 
   if (index === -1) {
     return null;
   }
 
   const position = buildPosition(values.id, values);
-  store.positions[index] = position;
+  const nextPositions = [...positions];
+  nextPositions[index] = position;
+
+  await writePositions(nextPositions);
 
   return position;
 }
 
-export function deletePosition(id: number) {
-  const index = store.positions.findIndex((position) => position.id === id);
+export async function deletePosition(id: number) {
+  const positions = await readPositions();
+  const index = positions.findIndex((position) => position.id === id);
 
   if (index === -1) {
     return false;
   }
 
-  store.positions.splice(index, 1);
+  await writePositions(positions.filter((position) => position.id !== id));
 
   return true;
 }
