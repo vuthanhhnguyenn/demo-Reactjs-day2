@@ -11,7 +11,11 @@ import {
 } from "@/lib/api/@tanstack/react-query.gen";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { Position, UpdatePositionRequest } from "@/lib/api/position.schema";
+import {
+  GetPositionsResponseSchema,
+  type Position,
+  type UpdatePositionRequest,
+} from "@/lib/api/position.schema";
 import { CreatePositionDialog } from "./create-position-dialog";
 import { EditPositionDialog } from "./edit-position-dialog";
 import { PositionDetailDialog } from "./position-detail-dialog";
@@ -25,24 +29,69 @@ type PositionsClientProps = {
   initialPositions: Position[];
 };
 
+const POSITIONS_STORAGE_KEY = "positions-demo.positions";
+
+function readStoredPositions() {
+  try {
+    const rawValue = window.localStorage.getItem(POSITIONS_STORAGE_KEY);
+
+    if (!rawValue) {
+      return null;
+    }
+
+    return GetPositionsResponseSchema.parse(JSON.parse(rawValue)).positions;
+  } catch {
+    window.localStorage.removeItem(POSITIONS_STORAGE_KEY);
+    return null;
+  }
+}
+
+function writeStoredPositions(positions: Position[]) {
+  window.localStorage.setItem(
+    POSITIONS_STORAGE_KEY,
+    JSON.stringify({ positions }),
+  );
+}
+
 export function PositionsClient({ initialPositions }: PositionsClientProps) {
   const queryClient = useQueryClient();
 
   const { filters, setFilters, clearFilters } = usePositionsFilters();
   const [editingPosition, setEditingPosition] = useState<Position | null>(null);
+  const [positions, setPositions] = useState<Position[]>(() => {
+    if (typeof window === "undefined") {
+      return initialPositions;
+    }
 
-  const { data, isLoading, isError } = useQuery({
+    return readStoredPositions() ?? initialPositions;
+  });
+
+  const { isLoading, isError } = useQuery({
     ...getCrmPositionsOptions(),
     initialData: {
       positions: initialPositions,
     } satisfies GetCrmPositionsResponse,
   });
 
-  const positions = useMemo(() => data?.positions ?? [], [data?.positions]);
+  function updateStoredPositions(
+    updater: (currentPositions: Position[]) => Position[],
+  ) {
+    setPositions((currentPositions) => {
+      const nextPositions = updater(currentPositions);
+      writeStoredPositions(nextPositions);
+
+      return nextPositions;
+    });
+  }
 
   const createPositionMutation = useMutation({
     mutationFn: createCrmPosition,
-    onSuccess: () => {
+    onSuccess: (createdPosition) => {
+      updateStoredPositions((currentPositions) => [
+        ...currentPositions,
+        createdPosition,
+      ]);
+
       void queryClient.invalidateQueries({
         queryKey: ["getCrmPositions"],
       });
@@ -51,7 +100,13 @@ export function PositionsClient({ initialPositions }: PositionsClientProps) {
 
   const updatePositionMutation = useMutation({
     mutationFn: updateCrmPosition,
-    onSuccess: () => {
+    onSuccess: (updatedPosition) => {
+      updateStoredPositions((currentPositions) =>
+        currentPositions.map((position) =>
+          position.id === updatedPosition.id ? updatedPosition : position,
+        ),
+      );
+
       void queryClient.invalidateQueries({
         queryKey: ["getCrmPositions"],
       });
@@ -61,6 +116,10 @@ export function PositionsClient({ initialPositions }: PositionsClientProps) {
   const deletePositionMutation = useMutation({
     mutationFn: deleteCrmPosition,
     onSuccess: (_data, deletedPositionId) => {
+      updateStoredPositions((currentPositions) =>
+        currentPositions.filter((position) => position.id !== deletedPositionId),
+      );
+
       void queryClient.invalidateQueries({
         queryKey: ["getCrmPositions"],
       });
