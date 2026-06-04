@@ -6,14 +6,10 @@ export async function getPositionsForPage() {
   const headersList = await headers();
   const host = headersList.get("host");
 
-  const protocol =
-    process.env.NODE_ENV === "production" ? "https" : "http";
+  const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
 
   const response = await fetch(`${protocol}://${host}/api/crm/positions`, {
-    next: {
-      revalidate: 60,
-      tags: ["positions"],
-    },
+    cache: "no-store",
   });
 
   if (!response.ok) {

@@ -12,7 +12,6 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  GetPositionsResponseSchema,
   type Position,
   type UpdatePositionRequest,
 } from "@/lib/api/position.schema";
@@ -29,65 +28,36 @@ type PositionsClientProps = {
   initialPositions: Position[];
 };
 
-const POSITIONS_STORAGE_KEY = "positions-demo.positions";
-
-function readStoredPositions() {
-  try {
-    const rawValue = window.localStorage.getItem(POSITIONS_STORAGE_KEY);
-
-    if (!rawValue) {
-      return null;
-    }
-
-    return GetPositionsResponseSchema.parse(JSON.parse(rawValue)).positions;
-  } catch {
-    window.localStorage.removeItem(POSITIONS_STORAGE_KEY);
-    return null;
-  }
-}
-
-function writeStoredPositions(positions: Position[]) {
-  window.localStorage.setItem(
-    POSITIONS_STORAGE_KEY,
-    JSON.stringify({ positions }),
-  );
-}
-
 export function PositionsClient({ initialPositions }: PositionsClientProps) {
   const queryClient = useQueryClient();
 
   const { filters, setFilters, clearFilters } = usePositionsFilters();
   const [editingPosition, setEditingPosition] = useState<Position | null>(null);
-  const [positions, setPositions] = useState<Position[]>(() => {
-    if (typeof window === "undefined") {
-      return initialPositions;
-    }
 
-    return readStoredPositions() ?? initialPositions;
-  });
-
-  const { isLoading, isError } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     ...getCrmPositionsOptions(),
     initialData: {
       positions: initialPositions,
     } satisfies GetCrmPositionsResponse,
   });
 
-  function updateStoredPositions(
+  const positions = data.positions;
+
+  function updatePositionsCache(
     updater: (currentPositions: Position[]) => Position[],
   ) {
-    setPositions((currentPositions) => {
-      const nextPositions = updater(currentPositions);
-      writeStoredPositions(nextPositions);
-
-      return nextPositions;
-    });
+    queryClient.setQueryData<GetCrmPositionsResponse>(
+      ["getCrmPositions"],
+      (currentData) => ({
+        positions: updater(currentData?.positions ?? positions),
+      }),
+    );
   }
 
   const createPositionMutation = useMutation({
     mutationFn: createCrmPosition,
     onSuccess: (createdPosition) => {
-      updateStoredPositions((currentPositions) => [
+      updatePositionsCache((currentPositions) => [
         ...currentPositions,
         createdPosition,
       ]);
@@ -101,7 +71,7 @@ export function PositionsClient({ initialPositions }: PositionsClientProps) {
   const updatePositionMutation = useMutation({
     mutationFn: updateCrmPosition,
     onSuccess: (updatedPosition) => {
-      updateStoredPositions((currentPositions) =>
+      updatePositionsCache((currentPositions) =>
         currentPositions.map((position) =>
           position.id === updatedPosition.id ? updatedPosition : position,
         ),
@@ -116,7 +86,7 @@ export function PositionsClient({ initialPositions }: PositionsClientProps) {
   const deletePositionMutation = useMutation({
     mutationFn: deleteCrmPosition,
     onSuccess: (_data, deletedPositionId) => {
-      updateStoredPositions((currentPositions) =>
+      updatePositionsCache((currentPositions) =>
         currentPositions.filter((position) => position.id !== deletedPositionId),
       );
 

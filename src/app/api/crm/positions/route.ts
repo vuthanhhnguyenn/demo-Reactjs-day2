@@ -1,21 +1,24 @@
 import { NextResponse } from "next/server";
-import { revalidateTag } from "next/cache";
 
 import {
   CreatePositionRequestSchema,
-  PositionSchema,
   UpdatePositionRequestSchema,
 } from "@/lib/api/position.schema";
 import {
   type GetPositionsResponse,
   GetPositionsResponseSchema,
 } from "@/lib/api/position.schema";
-import { mockPositions } from "@/lib/api/positions.mock";
+import {
+  createPosition,
+  deletePosition,
+  listPositions,
+  updatePosition,
+} from "@/lib/api/positions.store";
 
 export async function GET() {
   try {
     const response: GetPositionsResponse = GetPositionsResponseSchema.parse({
-      positions: mockPositions,
+      positions: listPositions(),
     });
 
     return NextResponse.json(response);
@@ -34,31 +37,14 @@ export async function PATCH(request: Request) {
     const body = await request.json();
     const values = UpdatePositionRequestSchema.parse(body);
 
-    const index = mockPositions.findIndex(
-      (position) => position.id === values.id,
-    );
+    const updatedPosition = updatePosition(values);
 
-    if (index === -1) {
+    if (!updatedPosition) {
       return NextResponse.json(
         { error: "Position not found" },
         { status: 404 },
       );
     }
-
-    const updatedPosition = PositionSchema.parse({
-      id: values.id,
-      role: values.role,
-      position_name: values.position_name,
-      features: {
-        description: values.description,
-        ...Object.fromEntries(
-          values.permissions.map((permission) => [permission, true]),
-        ),
-      },
-    });
-
-    mockPositions[index] = updatedPosition;
-    revalidateTag("positions", { expire: 0 });
 
     return NextResponse.json(updatedPosition);
   } catch (error) {
@@ -76,25 +62,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const values = CreatePositionRequestSchema.parse(body);
 
-    const nextId =
-      mockPositions.length === 0
-        ? 1
-        : Math.max(...mockPositions.map((position) => position.id)) + 1;
-
-    const newPosition = PositionSchema.parse({
-      id: nextId,
-      role: values.role,
-      position_name: values.position_name,
-      features: {
-        description: values.description,
-        ...Object.fromEntries(
-          values.permissions.map((permission) => [permission, true]),
-        ),
-      },
-    });
-
-    mockPositions.push(newPosition);
-    revalidateTag("positions", { expire: 0 });
+    const newPosition = createPosition(values);
 
     return NextResponse.json(newPosition, { status: 201 });
   } catch (error) {
@@ -119,17 +87,14 @@ export async function DELETE(request: Request) {
       );
     }
 
-    const index = mockPositions.findIndex((position) => position.id === id);
+    const deleted = deletePosition(id);
 
-    if (index === -1) {
+    if (!deleted) {
       return NextResponse.json(
         { error: "Position not found" },
         { status: 404 },
       );
     }
-
-    mockPositions.splice(index, 1);
-    revalidateTag("positions", { expire: 0 });
 
     return NextResponse.json({ success: true });
   } catch (error) {
