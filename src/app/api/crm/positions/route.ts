@@ -1,68 +1,21 @@
 import { NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 
+import {
+  CreatePositionRequestSchema,
+  PositionSchema,
+  UpdatePositionRequestSchema,
+} from "@/lib/api/position.schema";
 import {
   type GetPositionsResponse,
   GetPositionsResponseSchema,
-  type Position,
 } from "@/lib/api/position.schema";
-
-const positions: Position[] = [
-  {
-    id: 1,
-    role: "headquarter",
-    position_name: "Quản trị trụ sở",
-    features: {
-      description: "Toàn quyền quản trị hệ thống và cấu hình nghiệp vụ.",
-      manage_staffs: true,
-      manage_positions: true,
-    },
-  },
-  {
-    id: 2,
-    role: "manager",
-    position_name: "Quản lý cửa hàng",
-    features: {
-      description: "Quản lý nhân viên và hoạt động của cửa hàng.",
-      view_reports: true,
-      manage_schedules: true,
-    },
-  },
-  {
-    id: 3,
-    role: "staff",
-    position_name: "Nhân viên bán hàng",
-    features: {
-      description: "Xử lý nghiệp vụ bán hàng hằng ngày.",
-      create_orders: true,
-      view_customers: true,
-    },
-  },
-  {
-    id: 4,
-    role: "trainer",
-    position_name: "Chuyên viên đào tạo",
-    features: {
-      description: "Theo dõi và triển khai chương trình đào tạo.",
-      manage_training: true,
-      view_staffs: true,
-    },
-  },
-  {
-    id: 5,
-    role: "observer",
-    position_name: "Quan sát viên",
-    features: {
-      description: "Chỉ xem dữ liệu phục vụ việc giám sát.",
-      view_reports: true,
-      edit_data: false,
-    },
-  },
-];
+import { mockPositions } from "@/lib/api/positions.mock";
 
 export async function GET() {
   try {
     const response: GetPositionsResponse = GetPositionsResponseSchema.parse({
-      positions,
+      positions: mockPositions,
     });
 
     return NextResponse.json(response);
@@ -72,6 +25,119 @@ export async function GET() {
     return NextResponse.json(
       { error: "Failed to fetch positions" },
       { status: 500 },
+    );
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const body = await request.json();
+    const values = UpdatePositionRequestSchema.parse(body);
+
+    const index = mockPositions.findIndex(
+      (position) => position.id === values.id,
+    );
+
+    if (index === -1) {
+      return NextResponse.json(
+        { error: "Position not found" },
+        { status: 404 },
+      );
+    }
+
+    const updatedPosition = PositionSchema.parse({
+      id: values.id,
+      role: values.role,
+      position_name: values.position_name,
+      features: {
+        description: values.description,
+        ...Object.fromEntries(
+          values.permissions.map((permission) => [permission, true]),
+        ),
+      },
+    });
+
+    mockPositions[index] = updatedPosition;
+    revalidateTag("positions", { expire: 0 });
+
+    return NextResponse.json(updatedPosition);
+  } catch (error) {
+    console.error("Error updating position:", error);
+
+    return NextResponse.json(
+      { error: "Failed to update position" },
+      { status: 400 },
+    );
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    const values = CreatePositionRequestSchema.parse(body);
+
+    const nextId =
+      mockPositions.length === 0
+        ? 1
+        : Math.max(...mockPositions.map((position) => position.id)) + 1;
+
+    const newPosition = PositionSchema.parse({
+      id: nextId,
+      role: values.role,
+      position_name: values.position_name,
+      features: {
+        description: values.description,
+        ...Object.fromEntries(
+          values.permissions.map((permission) => [permission, true]),
+        ),
+      },
+    });
+
+    mockPositions.push(newPosition);
+    revalidateTag("positions", { expire: 0 });
+
+    return NextResponse.json(newPosition, { status: 201 });
+  } catch (error) {
+    console.error("Error creating position:", error);
+
+    return NextResponse.json(
+      { error: "Failed to create position" },
+      { status: 400 },
+    );
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = Number(searchParams.get("id"));
+
+    if (!Number.isInteger(id)) {
+      return NextResponse.json(
+        { error: "Invalid position id" },
+        { status: 400 },
+      );
+    }
+
+    const index = mockPositions.findIndex((position) => position.id === id);
+
+    if (index === -1) {
+      return NextResponse.json(
+        { error: "Position not found" },
+        { status: 404 },
+      );
+    }
+
+    mockPositions.splice(index, 1);
+    revalidateTag("positions", { expire: 0 });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting position:", error);
+
+    return NextResponse.json(
+      { error: "Failed to delete position" },
+      { status: 400 },
     );
   }
 }

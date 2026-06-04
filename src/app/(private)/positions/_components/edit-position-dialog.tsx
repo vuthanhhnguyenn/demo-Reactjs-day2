@@ -1,17 +1,17 @@
 "use client";
+
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { useState } from "react";
+
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
-
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Form,
   FormControl,
@@ -29,31 +29,46 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-
 import {
-  CREATE_POSITION_PERMISSIONS,
-  CreatePositionSchema,
-  type CreatePositionFormValues,
-} from "../_schemas/create-position.schema";
+  type Position,
+  type UpdatePositionRequest,
+  UpdatePositionRequestSchema,
+} from "@/lib/api/position.schema";
 
 import { POSITION_ROLES } from "../_constants/constants";
+import { CREATE_POSITION_PERMISSIONS } from "../_schemas/create-position.schema";
 
-type CreatePositionDialogProps = {
-  onCreatePosition: (values: CreatePositionFormValues) => void;
-  isCreating?: boolean;
+type EditPositionDialogProps = {
+  position: Position | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onUpdatePosition: (values: UpdatePositionRequest) => Promise<void>;
+  isUpdating?: boolean;
 };
 
+function getDescription(position: Position) {
+  return typeof position.features.description === "string"
+    ? position.features.description
+    : "";
+}
 
+function getPermissions(position: Position) {
+  return Object.entries(position.features)
+    .filter(([key, value]) => key !== "description" && value === true)
+    .map(([key]) => key);
+}
 
-export function CreatePositionDialog({
-  onCreatePosition, isCreating
-}: CreatePositionDialogProps) {
-  
-  const [open, setOpen] = useState(false);
-
-  const form = useForm<CreatePositionFormValues>({
-    resolver: zodResolver(CreatePositionSchema),
+export function EditPositionDialog({
+  position,
+  open,
+  onOpenChange,
+  onUpdatePosition,
+  isUpdating,
+}: EditPositionDialogProps) {
+  const form = useForm<UpdatePositionRequest>({
+    resolver: zodResolver(UpdatePositionRequestSchema),
     defaultValues: {
+      id: 0,
       position_name: "",
       role: "staff",
       description: "",
@@ -61,24 +76,36 @@ export function CreatePositionDialog({
     },
   });
 
-  function handleSubmit(values: CreatePositionFormValues) {
-    onCreatePosition(values);
-    form.reset();
-    setOpen(false);
+  useEffect(() => {
+    if (!position) {
+      return;
+    }
+
+    form.reset({
+      id: position.id,
+      position_name: position.position_name,
+      role: position.role,
+      description: getDescription(position),
+      permissions: getPermissions(position),
+    });
+  }, [position, form]);
+
+  async function handleSubmit(values: UpdatePositionRequest) {
+    try {
+      await onUpdatePosition(values);
+      onOpenChange(false);
+    } catch {
+      // Keep the dialog open so the user can adjust the form and retry.
+    }
   }
 
   return (
-    <Dialog open = {open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button type="button">Tạo chức vụ</Button>
-      </DialogTrigger>
-
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Tạo chức vụ thử </DialogTitle>
+          <DialogTitle>Sửa chức vụ</DialogTitle>
         </DialogHeader>
 
-        <p className="text-muted-foreground text-sm"></p>
         <Form {...form}>
           <form
             onSubmit={form.handleSubmit(handleSubmit)}
@@ -192,8 +219,8 @@ export function CreatePositionDialog({
               )}
             />
 
-            <Button type="submit" className="w-full" disabled = {isCreating}>
-              Tạo chức vụ
+            <Button type="submit" className="w-full" disabled={isUpdating}>
+              {isUpdating ? "Đang lưu..." : "Lưu thay đổi"}
             </Button>
           </form>
         </Form>

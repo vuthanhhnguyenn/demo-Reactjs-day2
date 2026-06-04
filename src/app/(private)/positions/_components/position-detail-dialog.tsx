@@ -48,7 +48,7 @@ export function PositionDetailDialog({position, onClose,}: PositionDetailDialogP
                                         className="flex items-start justify-between gap-4 rounded-md border p-3"
                                     >
                                         <span className="font-medium">{key}</span>
-                                        <span className="text-muted-foreground text-right">
+                                        <span className="text-muted-foreground tCrext-right">
                                             {typeof value === "boolean" ? value ? "Có" : "Không" : String(value)}
                                         </span>
                                     </div>
