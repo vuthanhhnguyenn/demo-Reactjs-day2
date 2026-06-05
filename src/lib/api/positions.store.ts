@@ -18,7 +18,7 @@ const globalForPositions = globalThis as typeof globalThis & {
   __positionsDemoRedis?: Redis;
 };
 
-const POSITIONS_REDIS_KEY = "positions-demo:positions";
+const POSITIONS_REDIS_KEY = "positions-demo:positions:new";
 
 function cloneInitialPositions() {
   return mockPositions.map((position) =>
