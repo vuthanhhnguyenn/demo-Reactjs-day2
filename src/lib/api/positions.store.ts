@@ -164,7 +164,7 @@ async function listRedisPositionsByIndex(
     params.role === null
       ? POSITION_IDS_KEY
       : getPositionRoleIdsKey(params.role);
-  const startIndex = (params.page - 1) * params.pageSize;
+  //const startIndex = (params.page - 1) * params.pageSize;
 
   if (params.search.trim() === "") {
     const totalItems = await redis.zcard(indexKey);
