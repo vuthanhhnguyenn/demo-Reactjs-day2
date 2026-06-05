@@ -69,7 +69,7 @@ const positionNameByRole: Record<Position["role"], string> = {
   observer: "Quan sát viên",
 };
 
-const generatedPositions: Position[] = Array.from({ length: 95 }, (_, index) => {
+const generatedPositions: Position[] = Array.from({ length: 50 }, (_, index) => {
   const id = index + 6;
   const role = roleCycle[(id - 1) % roleCycle.length];
 
