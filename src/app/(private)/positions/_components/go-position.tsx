@@ -4,7 +4,7 @@ import Link from "next/link";
 export default function GoPositions() {
   return (
     <Button asChild variant="outline">
-      <Link href="/positions">Quay lại danh sách</Link>
+      <Link href="/positions">Đi tới danh sách</Link>
     </Button>
   );
 }

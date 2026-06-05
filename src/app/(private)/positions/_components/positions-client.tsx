@@ -65,6 +65,7 @@ export function PositionsClient({
   const { data: summary } = useQuery({
     ...getCrmPositionsSummaryOptions(),
     initialData: initialSummary,
+    staleTime: 60_000,
   });
 
   const positions = data?.positions ?? EMPTY_POSITIONS;
@@ -131,7 +132,9 @@ export function PositionsClient({
     mutationFn: deleteCrmPosition,
     onSuccess: (_data, deletedPositionId) => {
       updatePositionsCache((currentPositions) =>
-        currentPositions.filter((position) => position.id !== deletedPositionId),
+        currentPositions.filter(
+          (position) => position.id !== deletedPositionId,
+        ),
       );
 
       void queryClient.invalidateQueries({
@@ -182,7 +185,6 @@ export function PositionsClient({
 
     deletePositionMutation.mutate(position.id);
   }
-
   return (
     <section className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
