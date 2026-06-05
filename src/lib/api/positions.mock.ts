@@ -70,7 +70,7 @@ const positionNameByRole: Record<Position["role"], string> = {
 };
 
 const generatedPositions: Position[] = Array.from(
-  { length: 95 },
+  { length: 995 },
   (_, index) => {
     const id = index + 6;
     const role = roleCycle[(id - 1) % roleCycle.length];
