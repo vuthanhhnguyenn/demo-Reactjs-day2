@@ -8,11 +8,11 @@ import { PositionsClient } from "./_components/positions-client";
 export const dynamic = "force-dynamic";
 
 export default async function PositionsPage() {
-  const positions = await getPositionsForPage();
+  const positionsResponse = await getPositionsForPage();
 
   return (
     <Suspense fallback={<Skeleton className="h-10 w-full" />}>
-      <PositionsClient initialPositions={positions} />
+      <PositionsClient initialData={positionsResponse} />
     </Suspense>
   );
 }

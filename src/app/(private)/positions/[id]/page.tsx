@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getPositionsForPage } from "@/lib/api/positions.server";
+import { getAllPositionsForPage } from "@/lib/api/positions.server";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
@@ -21,7 +21,7 @@ export default async function PositionDetailPage({
     notFound();
   }
 
-  const positions = await getPositionsForPage();
+  const positions = await getAllPositionsForPage();
   const position = positions.find((item) => item.id === positionId);
 
   if (!position) {

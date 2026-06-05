@@ -10,8 +10,43 @@ import {
 } from "../position.schema";
 export type GetCrmPositionsResponse = GetPositionsResponse;
 
-export async function getCrmPositions(): Promise<GetCrmPositionsResponse> {
-  const response = await fetch("/api/crm/positions");
+export type GetCrmPositionsParams = {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  role?: string | null;
+};
+
+function buildPositionsSearchParams(params?: GetCrmPositionsParams) {
+  const searchParams = new URLSearchParams();
+
+  if (params?.page) {
+    searchParams.set("page", String(params.page));
+  }
+
+  if (params?.pageSize) {
+    searchParams.set("pageSize", String(params.pageSize));
+  }
+
+  if (params?.search) {
+    searchParams.set("search", params.search);
+  }
+
+  if (params?.role) {
+    searchParams.set("role", params.role);
+  }
+
+  return searchParams;
+}
+
+export async function getCrmPositions(
+  params?: GetCrmPositionsParams,
+): Promise<GetCrmPositionsResponse> {
+  const searchParams = buildPositionsSearchParams(params);
+  const queryString = searchParams.toString();
+  const response = await fetch(
+    `/api/crm/positions${queryString ? `?${queryString}` : ""}`,
+  );
 
   if (!response.ok) {
     throw new Error("Failed to fetch positions");
@@ -20,10 +55,10 @@ export async function getCrmPositions(): Promise<GetCrmPositionsResponse> {
   return GetPositionsResponseSchema.parse(await response.json());
 }
 
-export function getCrmPositionsOptions() {
+export function getCrmPositionsOptions(params?: GetCrmPositionsParams) {
   return queryOptions({
-    queryKey: ["getCrmPositions"],
-    queryFn: getCrmPositions,
+    queryKey: ["getCrmPositions", params ?? {}],
+    queryFn: () => getCrmPositions(params),
   });
 }
 export async function createCrmPosition(

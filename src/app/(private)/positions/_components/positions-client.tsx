@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createCrmPosition,
@@ -27,32 +27,53 @@ import { usePositionsFilters } from "../_hooks/use-positions-filters";
 import type { CreatePositionFormValues } from "../_schemas/create-position.schema";
 
 type PositionsClientProps = {
-  initialPositions: Position[];
+  initialData: GetCrmPositionsResponse;
 };
 
-export function PositionsClient({ initialPositions }: PositionsClientProps) {
+export function PositionsClient({ initialData }: PositionsClientProps) {
   const queryClient = useQueryClient();
 
   const { filters, setFilters, clearFilters } = usePositionsFilters();
   const [editingPosition, setEditingPosition] = useState<Position | null>(null);
 
   const { data, isLoading, isError } = useQuery({
-    ...getCrmPositionsOptions(),
-    initialData: {
-      positions: initialPositions,
-    } satisfies GetCrmPositionsResponse,
+    ...getCrmPositionsOptions({
+      page: filters.page,
+      pageSize: POSITIONS_PAGE_SIZE,
+      search: filters.search,
+      role: filters.role,
+    }),
+    initialData,
   });
 
   const positions = data.positions;
+  const pagination = data.pagination ?? {
+    page: 1,
+    pageSize: POSITIONS_PAGE_SIZE,
+    totalItems: positions.length,
+    totalPages: 1,
+  };
+  const summary = data.summary ?? {
+    totalPositions: pagination.totalItems,
+    totalRoles: new Set(positions.map((position) => position.role)).size,
+  };
 
   function updatePositionsCache(
     updater: (currentPositions: Position[]) => Position[],
   ) {
     queryClient.setQueryData<GetCrmPositionsResponse>(
       ["getCrmPositions"],
-      (currentData) => ({
-        positions: updater(currentData?.positions ?? positions),
-      }),
+      (currentData) =>
+        currentData
+          ? {
+              ...currentData,
+              positions: updater(currentData.positions),
+            }
+          : {
+              positions: updater(positions),
+              pagination,
+              summary,
+            },
     );
   }
 
@@ -63,6 +84,10 @@ export function PositionsClient({ initialPositions }: PositionsClientProps) {
         ...currentPositions,
         createdPosition,
       ]);
+
+      void queryClient.invalidateQueries({
+        queryKey: ["getCrmPositions"],
+      });
     },
   });
 
@@ -74,6 +99,10 @@ export function PositionsClient({ initialPositions }: PositionsClientProps) {
           position.id === updatedPosition.id ? updatedPosition : position,
         ),
       );
+
+      void queryClient.invalidateQueries({
+        queryKey: ["getCrmPositions"],
+      });
     },
   });
 
@@ -84,52 +113,19 @@ export function PositionsClient({ initialPositions }: PositionsClientProps) {
         currentPositions.filter((position) => position.id !== deletedPositionId),
       );
 
+      void queryClient.invalidateQueries({
+        queryKey: ["getCrmPositions"],
+      });
+
       if (filters.id === deletedPositionId) {
         void setFilters({ id: null });
       }
     },
   });
 
-  const filteredPositions = useMemo(() => {
-    return positions.filter((position) => {
-      const search = filters.search.trim().toLowerCase();
-      const matchesSearch = position.position_name
-        .toLowerCase()
-        .includes(search);
-      const matchesRole =
-        filters.role === null || position.role === filters.role;
-
-      return matchesSearch && matchesRole;
-    });
-  }, [positions, filters.search, filters.role]);
-
   const selectedPosition = useMemo(() => {
     return positions.find((position) => position.id === filters.id);
   }, [positions, filters.id]);
-
-  const totalRoles = useMemo(() => {
-    return new Set(positions.map((position) => position.role)).size;
-  }, [positions]);
-
-  const totalPages = Math.max(
-    1,
-    Math.ceil(filteredPositions.length / POSITIONS_PAGE_SIZE),
-  );
-  const currentPage = Math.min(Math.max(filters.page, 1), totalPages);
-  const paginatedPositions = useMemo(() => {
-    const startIndex = (currentPage - 1) * POSITIONS_PAGE_SIZE;
-
-    return filteredPositions.slice(
-      startIndex,
-      startIndex + POSITIONS_PAGE_SIZE,
-    );
-  }, [currentPage, filteredPositions]);
-
-  useEffect(() => {
-    if (filters.page !== currentPage) {
-      void setFilters({ page: currentPage });
-    }
-  }, [currentPage, filters.page, setFilters]);
 
   function handleSelectPosition(position: Position) {
     void setFilters({ id: position.id });
@@ -203,8 +199,8 @@ export function PositionsClient({ initialPositions }: PositionsClientProps) {
         </Alert>
       )}
       <PositionsSummary
-        totalPositions={positions.length}
-        totalRoles={totalRoles}
+        totalPositions={summary.totalPositions}
+        totalRoles={summary.totalRoles}
       />
 
       <PositionsFilters
@@ -226,12 +222,12 @@ export function PositionsClient({ initialPositions }: PositionsClientProps) {
           <AlertTitle>Không thể tải dữ liệu</AlertTitle>
           <AlertDescription>Vui lòng thử tải lại trang.</AlertDescription>
         </Alert>
-      ) : filteredPositions.length === 0 ? (
+      ) : positions.length === 0 ? (
         <p className="text-muted-foreground">Không tìm thấy chức vụ phù hợp.</p>
       ) : (
         <div className="space-y-4">
           <PositionsTable
-            positions={paginatedPositions}
+            positions={positions}
             selectedPositionId={filters.id}
             onSelectPosition={handleSelectPosition}
             onEditPosition={handleEditPosition}
@@ -244,10 +240,10 @@ export function PositionsClient({ initialPositions }: PositionsClientProps) {
           />
 
           <PositionsPagination
-            page={currentPage}
-            pageSize={POSITIONS_PAGE_SIZE}
-            totalItems={filteredPositions.length}
-            totalPages={totalPages}
+            page={pagination.page}
+            pageSize={pagination.pageSize}
+            totalItems={pagination.totalItems}
+            totalPages={pagination.totalPages}
             onPageChange={(page) => void setFilters({ page })}
           />
         </div>

@@ -19,6 +19,20 @@ export const PositionSchema = z.object({
 
 export const GetPositionsResponseSchema = z.object({
   positions: z.array(PositionSchema),
+  pagination: z
+    .object({
+      page: z.number().int(),
+      pageSize: z.number().int(),
+      totalItems: z.number().int(),
+      totalPages: z.number().int(),
+    })
+    .optional(),
+  summary: z
+    .object({
+      totalPositions: z.number().int(),
+      totalRoles: z.number().int(),
+    })
+    .optional(),
 });
 
 export const CreatePositionRequestSchema = z.object({

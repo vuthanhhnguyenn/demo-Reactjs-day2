@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import {
   CreatePositionRequestSchema,
+  PositionRoleCategorySchema,
   UpdatePositionRequestSchema,
 } from "@/lib/api/position.schema";
 import {
@@ -15,10 +16,55 @@ import {
   updatePosition,
 } from "@/lib/api/positions.store";
 
-export async function GET() {
+function parsePositiveInteger(value: string | null, fallback: number) {
+  const parsedValue = Number(value);
+
+  if (!Number.isInteger(parsedValue) || parsedValue < 1) {
+    return fallback;
+  }
+
+  return parsedValue;
+}
+
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const page = parsePositiveInteger(searchParams.get("page"), 1);
+    const pageSize = Math.min(
+      parsePositiveInteger(searchParams.get("pageSize"), 10),
+      100,
+    );
+    const search = searchParams.get("search")?.trim().toLowerCase() ?? "";
+    const roleResult = PositionRoleCategorySchema.safeParse(
+      searchParams.get("role"),
+    );
+    const role = roleResult.success ? roleResult.data : null;
+    const positions = await listPositions();
+    const filteredPositions = positions.filter((position) => {
+      const matchesSearch = position.position_name
+        .toLowerCase()
+        .includes(search);
+      const matchesRole = role === null || position.role === role;
+
+      return matchesSearch && matchesRole;
+    });
+    const totalItems = filteredPositions.length;
+    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+    const currentPage = Math.min(page, totalPages);
+    const startIndex = (currentPage - 1) * pageSize;
+
     const response: GetPositionsResponse = GetPositionsResponseSchema.parse({
-      positions: await listPositions(),
+      positions: filteredPositions.slice(startIndex, startIndex + pageSize),
+      pagination: {
+        page: currentPage,
+        pageSize,
+        totalItems,
+        totalPages,
+      },
+      summary: {
+        totalPositions: positions.length,
+        totalRoles: new Set(positions.map((position) => position.role)).size,
+      },
     });
 
     return NextResponse.json(response);
