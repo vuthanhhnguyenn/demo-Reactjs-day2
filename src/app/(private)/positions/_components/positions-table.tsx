@@ -84,7 +84,7 @@ export function PositionsTable({
                     Sửa
                   </Button>
                   <Button asChild type="button" variant="ghost" size="sm">
-                    <Link href={`/positions/${position.id}`}>
+                    <Link href={`/positions/${position.id}`} prefetch={false}>
                       Trang chi tiết
                     </Link>
                   </Button>
