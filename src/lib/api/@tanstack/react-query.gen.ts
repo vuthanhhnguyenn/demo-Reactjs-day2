@@ -3,12 +3,15 @@ import { queryOptions } from "@tanstack/react-query";
 import {
   type GetPositionsResponse,
   GetPositionsResponseSchema,
+  type GetPositionsSummaryResponse,
+  GetPositionsSummaryResponseSchema,
   type CreatePositionRequest,
   type Position,
   PositionSchema,
   type UpdatePositionRequest,
 } from "../position.schema";
 export type GetCrmPositionsResponse = GetPositionsResponse;
+export type GetCrmPositionsSummaryResponse = GetPositionsSummaryResponse;
 
 export type GetCrmPositionsParams = {
   page?: number;
@@ -61,6 +64,24 @@ export function getCrmPositionsOptions(params?: GetCrmPositionsParams) {
     queryFn: () => getCrmPositions(params),
   });
 }
+
+export async function getCrmPositionsSummary(): Promise<GetCrmPositionsSummaryResponse> {
+  const response = await fetch("/api/crm/positions/summary");
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch positions summary");
+  }
+
+  return GetPositionsSummaryResponseSchema.parse(await response.json());
+}
+
+export function getCrmPositionsSummaryOptions() {
+  return queryOptions({
+    queryKey: ["getCrmPositionsSummary"],
+    queryFn: getCrmPositionsSummary,
+  });
+}
+
 export async function createCrmPosition(
   values: CreatePositionRequest,
 ): Promise<Position> {

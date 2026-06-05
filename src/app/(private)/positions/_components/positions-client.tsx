@@ -6,7 +6,9 @@ import {
   createCrmPosition,
   deleteCrmPosition,
   getCrmPositionsOptions,
+  getCrmPositionsSummaryOptions,
   type GetCrmPositionsResponse,
+  type GetCrmPositionsSummaryResponse,
   updateCrmPosition,
 } from "@/lib/api/@tanstack/react-query.gen";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -28,9 +30,13 @@ import type { CreatePositionFormValues } from "../_schemas/create-position.schem
 
 type PositionsClientProps = {
   initialData: GetCrmPositionsResponse;
+  initialSummary: GetCrmPositionsSummaryResponse;
 };
 
-export function PositionsClient({ initialData }: PositionsClientProps) {
+export function PositionsClient({
+  initialData,
+  initialSummary,
+}: PositionsClientProps) {
   const queryClient = useQueryClient();
 
   const { filters, setFilters, clearFilters } = usePositionsFilters();
@@ -45,6 +51,10 @@ export function PositionsClient({ initialData }: PositionsClientProps) {
     }),
     initialData,
   });
+  const { data: summary } = useQuery({
+    ...getCrmPositionsSummaryOptions(),
+    initialData: initialSummary,
+  });
 
   const positions = data.positions;
   const pagination = data.pagination ?? {
@@ -53,11 +63,6 @@ export function PositionsClient({ initialData }: PositionsClientProps) {
     totalItems: positions.length,
     totalPages: 1,
   };
-  const summary = data.summary ?? {
-    totalPositions: pagination.totalItems,
-    totalRoles: new Set(positions.map((position) => position.role)).size,
-  };
-
   function updatePositionsCache(
     updater: (currentPositions: Position[]) => Position[],
   ) {
@@ -72,7 +77,6 @@ export function PositionsClient({ initialData }: PositionsClientProps) {
           : {
               positions: updater(positions),
               pagination,
-              summary,
             },
     );
   }
@@ -87,6 +91,9 @@ export function PositionsClient({ initialData }: PositionsClientProps) {
 
       void queryClient.invalidateQueries({
         queryKey: ["getCrmPositions"],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["getCrmPositionsSummary"],
       });
     },
   });
@@ -103,6 +110,9 @@ export function PositionsClient({ initialData }: PositionsClientProps) {
       void queryClient.invalidateQueries({
         queryKey: ["getCrmPositions"],
       });
+      void queryClient.invalidateQueries({
+        queryKey: ["getCrmPositionsSummary"],
+      });
     },
   });
 
@@ -115,6 +125,9 @@ export function PositionsClient({ initialData }: PositionsClientProps) {
 
       void queryClient.invalidateQueries({
         queryKey: ["getCrmPositions"],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["getCrmPositionsSummary"],
       });
 
       if (filters.id === deletedPositionId) {

@@ -3,6 +3,7 @@ import { Redis } from "@upstash/redis";
 import {
   type CreatePositionRequest,
   GetPositionsResponseSchema,
+  GetPositionsSummaryResponseSchema,
   type Position,
   PositionSchema,
   type PositionRoleCategory,
@@ -30,6 +31,14 @@ const REDIS_NAMESPACE = "positions-demo:v3";
 const POSITION_IDS_KEY = `${REDIS_NAMESPACE}:ids`;
 const POSITION_NEXT_ID_KEY = `${REDIS_NAMESPACE}:next-id`;
 const POSITION_SEEDED_KEY = `${REDIS_NAMESPACE}:seeded`;
+const POSITION_SEED_VERSION = "mock-positions-1000";
+const POSITION_ROLES: PositionRoleCategory[] = [
+  "headquarter",
+  "manager",
+  "staff",
+  "trainer",
+  "observer",
+];
 
 function getPositionKey(id: number) {
   return `${REDIS_NAMESPACE}:item:${id}`;
@@ -119,16 +128,32 @@ async function savePositionToRedis(redis: Redis, position: Position) {
 }
 
 async function seedRedisIfNeeded(redis: Redis) {
-  const seeded = await redis.get<boolean>(POSITION_SEEDED_KEY);
+  const seededVersion = await redis.get<string | boolean>(POSITION_SEEDED_KEY);
 
-  if (seeded) {
+  if (seededVersion === POSITION_SEED_VERSION) {
     return;
   }
 
   const initialPositions = cloneInitialPositions();
+  const batchSize = 100;
 
-  for (const position of initialPositions) {
-    await savePositionToRedis(redis, position);
+  for (let index = 0; index < initialPositions.length; index += batchSize) {
+    const pipeline = redis.pipeline();
+    const batch = initialPositions.slice(index, index + batchSize);
+
+    for (const position of batch) {
+      pipeline.set(getPositionKey(position.id), position);
+      pipeline.zadd(POSITION_IDS_KEY, {
+        score: position.id,
+        member: String(position.id),
+      });
+      pipeline.zadd(getPositionRoleIdsKey(position.role), {
+        score: position.id,
+        member: String(position.id),
+      });
+    }
+
+    await pipeline.exec();
   }
 
   const maxId =
@@ -136,8 +161,11 @@ async function seedRedisIfNeeded(redis: Redis) {
       ? 0
       : Math.max(...initialPositions.map((position) => position.id));
 
-  await redis.set(POSITION_NEXT_ID_KEY, maxId);
-  await redis.set(POSITION_SEEDED_KEY, true);
+  await redis
+    .pipeline()
+    .set(POSITION_NEXT_ID_KEY, maxId)
+    .set(POSITION_SEEDED_KEY, POSITION_SEED_VERSION)
+    .exec();
 }
 
 async function readPositionItems(redis: Redis, ids: string[]) {
@@ -164,7 +192,6 @@ async function listRedisPositionsByIndex(
     params.role === null
       ? POSITION_IDS_KEY
       : getPositionRoleIdsKey(params.role);
-  //const startIndex = (params.page - 1) * params.pageSize;
 
   if (params.search.trim() === "") {
     const totalItems = await redis.zcard(indexKey);
@@ -177,7 +204,6 @@ async function listRedisPositionsByIndex(
       pageStartIndex + params.pageSize - 1,
     );
     const positions = await readPositionItems(redis, ids);
-    const totalPositions = await redis.zcard(POSITION_IDS_KEY);
 
     return GetPositionsResponseSchema.parse({
       positions,
@@ -186,10 +212,6 @@ async function listRedisPositionsByIndex(
         pageSize: params.pageSize,
         totalItems,
         totalPages,
-      },
-      summary: {
-        totalPositions,
-        totalRoles: 5,
       },
     });
   }
@@ -205,7 +227,6 @@ async function listRedisPositionsByIndex(
   const totalPages = Math.max(1, Math.ceil(totalItems / params.pageSize));
   const page = Math.min(params.page, totalPages);
   const pageStartIndex = (page - 1) * params.pageSize;
-  const totalPositions = await redis.zcard(POSITION_IDS_KEY);
 
   return GetPositionsResponseSchema.parse({
     positions: filteredPositions.slice(
@@ -217,10 +238,6 @@ async function listRedisPositionsByIndex(
       pageSize: params.pageSize,
       totalItems,
       totalPages,
-    },
-    summary: {
-      totalPositions,
-      totalRoles: 5,
     },
   });
 }
@@ -244,12 +261,11 @@ function listMemoryPositionsPage(params: ListPositionsPageParams) {
       totalItems,
       totalPages,
     },
-    summary: {
-      totalPositions: store.positions.length,
-      totalRoles: new Set(store.positions.map((position) => position.role))
-        .size,
-    },
   });
+}
+
+function logRedisReadFallback(operation: string, error: unknown) {
+  console.error(`Redis ${operation} failed, using mock fallback:`, error);
 }
 
 export async function listPositionsPage(params: ListPositionsPageParams) {
@@ -259,7 +275,13 @@ export async function listPositionsPage(params: ListPositionsPageParams) {
     return listMemoryPositionsPage(params);
   }
 
-  return listRedisPositionsByIndex(redis, params);
+  try {
+    return await listRedisPositionsByIndex(redis, params);
+  } catch (error) {
+    logRedisReadFallback("list positions page", error);
+
+    return listMemoryPositionsPage(params);
+  }
 }
 
 export async function listPositions() {
@@ -269,11 +291,51 @@ export async function listPositions() {
     return store.positions;
   }
 
-  await seedRedisIfNeeded(redis);
+  try {
+    await seedRedisIfNeeded(redis);
 
-  const ids = await redis.zrange<string[]>(POSITION_IDS_KEY, 0, -1);
+    const ids = await redis.zrange<string[]>(POSITION_IDS_KEY, 0, -1);
 
-  return readPositionItems(redis, ids);
+    return await readPositionItems(redis, ids);
+  } catch (error) {
+    logRedisReadFallback("list all positions", error);
+
+    return store.positions;
+  }
+}
+
+export async function getPositionsSummary() {
+  const redis = getRedis();
+
+  if (!redis) {
+    return GetPositionsSummaryResponseSchema.parse({
+      totalPositions: store.positions.length,
+      totalRoles: new Set(store.positions.map((position) => position.role))
+        .size,
+    });
+  }
+
+  try {
+    await seedRedisIfNeeded(redis);
+
+    const totalPositions = await redis.zcard(POSITION_IDS_KEY);
+    const roleCounts = await Promise.all(
+      POSITION_ROLES.map((role) => redis.zcard(getPositionRoleIdsKey(role))),
+    );
+
+    return GetPositionsSummaryResponseSchema.parse({
+      totalPositions,
+      totalRoles: roleCounts.filter((count) => count > 0).length,
+    });
+  } catch (error) {
+    logRedisReadFallback("get positions summary", error);
+
+    return GetPositionsSummaryResponseSchema.parse({
+      totalPositions: store.positions.length,
+      totalRoles: new Set(store.positions.map((position) => position.role))
+        .size,
+    });
+  }
 }
 
 export async function createPosition(values: CreatePositionRequest) {
@@ -328,7 +390,10 @@ export async function updatePosition(values: UpdatePositionRequest) {
   const position = buildPosition(values.id, values);
 
   if (currentPosition.role !== position.role) {
-    await redis.zrem(getPositionRoleIdsKey(currentPosition.role), values.id);
+    await redis.zrem(
+      getPositionRoleIdsKey(currentPosition.role),
+      String(values.id),
+    );
   }
 
   await savePositionToRedis(redis, position);

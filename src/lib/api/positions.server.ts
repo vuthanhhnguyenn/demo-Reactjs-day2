@@ -1,23 +1,22 @@
-import { listPositions } from "./positions.store";
+import {
+  getPositionsSummary,
+  listPositions,
+  listPositionsPage,
+} from "./positions.store";
 
 const POSITIONS_PAGE_SIZE = 10;
 
 export async function getPositionsForPage() {
-  const positions = await listPositions();
+  return listPositionsPage({
+    page: 1,
+    pageSize: POSITIONS_PAGE_SIZE,
+    search: "",
+    role: null,
+  });
+}
 
-  return {
-    positions: positions.slice(0, POSITIONS_PAGE_SIZE),
-    pagination: {
-      page: 1,
-      pageSize: POSITIONS_PAGE_SIZE,
-      totalItems: positions.length,
-      totalPages: Math.max(1, Math.ceil(positions.length / POSITIONS_PAGE_SIZE)),
-    },
-    summary: {
-      totalPositions: positions.length,
-      totalRoles: new Set(positions.map((position) => position.role)).size,
-    },
-  };
+export async function getPositionsSummaryForPage() {
+  return getPositionsSummary();
 }
 
 export async function getAllPositionsForPage() {

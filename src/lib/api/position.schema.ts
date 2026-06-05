@@ -27,12 +27,11 @@ export const GetPositionsResponseSchema = z.object({
       totalPages: z.number().int(),
     })
     .optional(),
-  summary: z
-    .object({
-      totalPositions: z.number().int(),
-      totalRoles: z.number().int(),
-    })
-    .optional(),
+});
+
+export const GetPositionsSummaryResponseSchema = z.object({
+  totalPositions: z.number().int(),
+  totalRoles: z.number().int(),
 });
 
 export const CreatePositionRequestSchema = z.object({
@@ -51,3 +50,6 @@ export type UpdatePositionRequest = z.infer<typeof UpdatePositionRequestSchema>;
 export type Position = z.infer<typeof PositionSchema>;
 export type PositionRoleCategory = z.infer<typeof PositionRoleCategorySchema>;
 export type GetPositionsResponse = z.infer<typeof GetPositionsResponseSchema>;
+export type GetPositionsSummaryResponse = z.infer<
+  typeof GetPositionsSummaryResponseSchema
+>;
