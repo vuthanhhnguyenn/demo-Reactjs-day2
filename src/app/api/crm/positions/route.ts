@@ -12,7 +12,7 @@ import {
 import {
   createPosition,
   deletePosition,
-  listPositions,
+  listPositionsPage,
   updatePosition,
 } from "@/lib/api/positions.store";
 
@@ -39,32 +39,14 @@ export async function GET(request: Request) {
       searchParams.get("role"),
     );
     const role = roleResult.success ? roleResult.data : null;
-    const positions = await listPositions();
-    const filteredPositions = positions.filter((position) => {
-      const matchesSearch = position.position_name
-        .toLowerCase()
-        .includes(search);
-      const matchesRole = role === null || position.role === role;
-
-      return matchesSearch && matchesRole;
-    });
-    const totalItems = filteredPositions.length;
-    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-    const currentPage = Math.min(page, totalPages);
-    const startIndex = (currentPage - 1) * pageSize;
 
     const response: GetPositionsResponse = GetPositionsResponseSchema.parse({
-      positions: filteredPositions.slice(startIndex, startIndex + pageSize),
-      pagination: {
-        page: currentPage,
+      ...(await listPositionsPage({
+        page,
         pageSize,
-        totalItems,
-        totalPages,
-      },
-      summary: {
-        totalPositions: positions.length,
-        totalRoles: new Set(positions.map((position) => position.role)).size,
-      },
+        search,
+        role,
+      })),
     });
 
     return NextResponse.json(response);
