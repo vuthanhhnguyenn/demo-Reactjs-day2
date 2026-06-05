@@ -5,6 +5,8 @@ import { getPositionsForPage } from "@/lib/api/positions.server";
 
 import { PositionsClient } from "./_components/positions-client";
 
+export const dynamic = "force-dynamic";
+
 export default async function PositionsPage() {
   const positions = await getPositionsForPage();
 

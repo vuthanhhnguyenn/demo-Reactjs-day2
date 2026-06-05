@@ -10,6 +10,8 @@ type PositionDetailPageProps = {
   }>;
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function PositionDetailPage({
   params,
 }: PositionDetailPageProps) {
