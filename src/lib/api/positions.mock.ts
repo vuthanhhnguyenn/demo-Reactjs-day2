@@ -1,6 +1,6 @@
 import type { Position } from "./position.schema";
 
-export const mockPositions: Position[] = [
+const defaultPositions: Position[] = [
   {
     id: 1,
     role: "headquarter",
@@ -51,4 +51,46 @@ export const mockPositions: Position[] = [
       edit_data: false,
     },
   },
+];
+
+const roleCycle = [
+  "headquarter",
+  "manager",
+  "staff",
+  "trainer",
+  "observer",
+] as const satisfies Position["role"][];
+
+const positionNameByRole: Record<Position["role"], string> = {
+  headquarter: "Quản trị trụ sở",
+  manager: "Quản lý cửa hàng",
+  staff: "Nhân viên bán hàng",
+  trainer: "Chuyên viên đào tạo",
+  observer: "Quan sát viên",
+};
+
+const generatedPositions: Position[] = Array.from({ length: 95 }, (_, index) => {
+  const id = index + 6;
+  const role = roleCycle[(id - 1) % roleCycle.length];
+
+  return {
+    id,
+    role,
+    position_name: `${positionNameByRole[role]} ${id}`,
+    features: {
+      description: `Chức vụ mẫu số ${id} dùng để kiểm thử phân trang và CRUD.`,
+      manage_staffs: role === "headquarter" || role === "manager",
+      manage_positions: role === "headquarter",
+      view_reports: role !== "staff",
+      create_orders: role === "staff",
+      manage_training: role === "trainer",
+      view_staffs: role === "trainer" || role === "manager",
+      edit_data: role !== "observer",
+    },
+  };
+});
+
+export const mockPositions: Position[] = [
+  ...defaultPositions,
+  ...generatedPositions,
 ];

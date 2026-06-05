@@ -13,13 +13,16 @@ import {
 export function usePositionsFilters() {
     const [filters, setFilters] = useQueryStates({
         id: parseAsInteger,
+        page: parseAsInteger.withDefault(1),
         search: parseAsString.withDefault(""),
         role: parseAsStringEnum<PositionRole>([...POSITION_ROLES]),
     });
 
     function clearFilters() {
         void setFilters({
-            search: null, role: null,
+            page: null,
+            search: null,
+            role: null,
         })
     }
 

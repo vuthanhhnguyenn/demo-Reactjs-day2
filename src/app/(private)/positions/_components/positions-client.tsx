@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createCrmPosition,
@@ -19,8 +19,10 @@ import { CreatePositionDialog } from "./create-position-dialog";
 import { EditPositionDialog } from "./edit-position-dialog";
 import { PositionDetailDialog } from "./position-detail-dialog";
 import { PositionsFilters } from "./positions-filters";
+import { PositionsPagination } from "./positions-pagination";
 import { PositionsSummary } from "./positions-summary";
 import { PositionsTable } from "./positions-table";
+import { POSITIONS_PAGE_SIZE } from "../_constants/constants";
 import { usePositionsFilters } from "../_hooks/use-positions-filters";
 import type { CreatePositionFormValues } from "../_schemas/create-position.schema";
 
@@ -109,6 +111,26 @@ export function PositionsClient({ initialPositions }: PositionsClientProps) {
     return new Set(positions.map((position) => position.role)).size;
   }, [positions]);
 
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredPositions.length / POSITIONS_PAGE_SIZE),
+  );
+  const currentPage = Math.min(Math.max(filters.page, 1), totalPages);
+  const paginatedPositions = useMemo(() => {
+    const startIndex = (currentPage - 1) * POSITIONS_PAGE_SIZE;
+
+    return filteredPositions.slice(
+      startIndex,
+      startIndex + POSITIONS_PAGE_SIZE,
+    );
+  }, [currentPage, filteredPositions]);
+
+  useEffect(() => {
+    if (filters.page !== currentPage) {
+      void setFilters({ page: currentPage });
+    }
+  }, [currentPage, filters.page, setFilters]);
+
   function handleSelectPosition(position: Position) {
     void setFilters({ id: position.id });
   }
@@ -188,8 +210,8 @@ export function PositionsClient({ initialPositions }: PositionsClientProps) {
       <PositionsFilters
         search={filters.search}
         role={filters.role}
-        onSearchChange={(search) => void setFilters({ search })}
-        onRoleChange={(role) => void setFilters({ role })}
+        onSearchChange={(search) => void setFilters({ page: 1, search })}
+        onRoleChange={(role) => void setFilters({ page: 1, role })}
         onClear={clearFilters}
       />
 
@@ -207,18 +229,28 @@ export function PositionsClient({ initialPositions }: PositionsClientProps) {
       ) : filteredPositions.length === 0 ? (
         <p className="text-muted-foreground">Không tìm thấy chức vụ phù hợp.</p>
       ) : (
-        <PositionsTable
-          positions={filteredPositions}
-          selectedPositionId={filters.id}
-          onSelectPosition={handleSelectPosition}
-          onEditPosition={handleEditPosition}
-          onDeletePosition={handleDeletePosition}
-          deletingPositionId={
-            deletePositionMutation.isPending
-              ? deletePositionMutation.variables
-              : null
-          }
-        />
+        <div className="space-y-4">
+          <PositionsTable
+            positions={paginatedPositions}
+            selectedPositionId={filters.id}
+            onSelectPosition={handleSelectPosition}
+            onEditPosition={handleEditPosition}
+            onDeletePosition={handleDeletePosition}
+            deletingPositionId={
+              deletePositionMutation.isPending
+                ? deletePositionMutation.variables
+                : null
+            }
+          />
+
+          <PositionsPagination
+            page={currentPage}
+            pageSize={POSITIONS_PAGE_SIZE}
+            totalItems={filteredPositions.length}
+            totalPages={totalPages}
+            onPageChange={(page) => void setFilters({ page })}
+          />
+        </div>
       )}
 
       <EditPositionDialog
