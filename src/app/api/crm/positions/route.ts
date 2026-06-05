@@ -18,7 +18,7 @@ import {
 export async function GET() {
   try {
     const response: GetPositionsResponse = GetPositionsResponseSchema.parse({
-      positions: listPositions(),
+      positions: await listPositions(),
     });
 
     return NextResponse.json(response);
@@ -37,7 +37,7 @@ export async function PATCH(request: Request) {
     const body = await request.json();
     const values = UpdatePositionRequestSchema.parse(body);
 
-    const updatedPosition = updatePosition(values);
+    const updatedPosition = await updatePosition(values);
 
     if (!updatedPosition) {
       return NextResponse.json(
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const values = CreatePositionRequestSchema.parse(body);
 
-    const newPosition = createPosition(values);
+    const newPosition = await createPosition(values);
 
     return NextResponse.json(newPosition, { status: 201 });
   } catch (error) {
@@ -87,7 +87,7 @@ export async function DELETE(request: Request) {
       );
     }
 
-    const deleted = deletePosition(id);
+    const deleted = await deletePosition(id);
 
     if (!deleted) {
       return NextResponse.json(
