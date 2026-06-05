@@ -58,14 +58,16 @@ export function PositionsTable({
               }
             >
               <TableCell>{position.id}</TableCell>
-              <TableCell className="font-medium">
+              <TableCell className="max-w-56 whitespace-normal break-words font-medium">
                 {position.position_name}
               </TableCell>
               <TableCell>
                 <Badge variant="secondary">{position.role}</Badge>
               </TableCell>
-              <TableCell>{description}</TableCell>
-              <TableCell className="text-right">
+              <TableCell className="max-w-96 whitespace-normal break-words">
+                {description}
+              </TableCell>
+              <TableCell className="whitespace-nowrap text-right">
                 <div className="flex justify-end gap-2">
                   <Button
                     type="button"

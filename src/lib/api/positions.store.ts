@@ -254,7 +254,10 @@ function listMemoryPositionsPage(params: ListPositionsPageParams) {
   const startIndex = (page - 1) * params.pageSize;
 
   return GetPositionsResponseSchema.parse({
-    positions: filteredPositions.slice(startIndex, startIndex + params.pageSize),
+    positions: filteredPositions.slice(
+      startIndex,
+      startIndex + params.pageSize,
+    ),
     pagination: {
       page,
       pageSize: params.pageSize,

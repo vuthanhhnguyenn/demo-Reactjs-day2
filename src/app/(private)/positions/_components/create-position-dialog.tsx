@@ -73,7 +73,7 @@ export function CreatePositionDialog({
         <Button type="button">Tạo chức vụ</Button>
       </DialogTrigger>
 
-      <DialogContent>
+      <DialogContent className="max-h-[calc(100vh-2rem)] overflow-x-hidden overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Tạo chức vụ thử </DialogTitle>
         </DialogHeader>
@@ -91,7 +91,11 @@ export function CreatePositionDialog({
                 <FormItem>
                   <FormLabel>Tên chức vụ</FormLabel>
                   <FormControl>
-                    <Input placeholder="Nhập tên chức vụ" {...field} />
+                    <Input
+                      className="truncate"
+                      placeholder="Nhập tên chức vụ"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -127,10 +131,11 @@ export function CreatePositionDialog({
               control={form.control}
               name="description"
               render={({ field }) => (
-                <FormItem>
+                <FormItem className="min-w-0">
                   <FormLabel>Mô tả quyền</FormLabel>
-                  <FormControl>
+                  <FormControl className="min-w-0">
                     <Textarea
+                      className="max-h-40 min-w-0 resize-y break-all whitespace-pre-wrap"
                       placeholder="Mô tả ngắn về quyền hạn của chức vụ"
                       {...field}
                     />
@@ -157,7 +162,7 @@ export function CreatePositionDialog({
                           const checked = field.value.includes(permission);
 
                           return (
-                            <FormItem className="flex flex-row items-center gap-2 rounded-md border p-3">
+                            <FormItem className="flex min-w-0 flex-row items-center gap-2 rounded-md border p-3">
                               <FormControl>
                                 <Checkbox
                                   checked={checked}
@@ -177,7 +182,7 @@ export function CreatePositionDialog({
                                   }}
                                 />
                               </FormControl>
-                              <FormLabel className="font-normal">
+                              <FormLabel className="min-w-0 break-words font-normal">
                                 {permission}
                               </FormLabel>
                             </FormItem>

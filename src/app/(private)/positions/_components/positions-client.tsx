@@ -230,6 +230,7 @@ export function PositionsClient({
       />
 
       <PositionsFilters
+        key={filters.search}
         search={filters.search}
         role={filters.role}
         onSearchChange={(search) => void setFilters({ page: 1, search })}

@@ -33,7 +33,9 @@ export default async function PositionDetailPage({
         <Link href="/positions">Quay lại danh sách</Link>
       </Button>
       <div>
-        <h1 className="text-2xl font-semibold">{position.position_name}</h1>
+        <h1 className="break-words text-2xl font-semibold">
+          {position.position_name}
+        </h1>
         <p className="text-muted-foreground">
           Chi tiết chức vụ ID {position.id}
         </p>
@@ -51,7 +53,7 @@ export default async function PositionDetailPage({
 
           <div>
             <p className="text-muted-foreground text-sm">Tên chức vụ</p>
-            <p className="font-medium">{position.position_name}</p>
+            <p className="break-words font-medium">{position.position_name}</p>
           </div>
         </CardContent>
       </Card>
@@ -63,10 +65,10 @@ export default async function PositionDetailPage({
           {Object.entries(position.features).map(([key, value]) => (
             <div
               key={key}
-              className="flex items-start justify-between gap-4 rounded-md border p-3"
+              className="grid grid-cols-[120px_minmax(0,1fr)] gap-4 rounded-md border p-3"
             >
-              <span className="font-medium">{key}</span>
-              <span className="text-muted-foreground text-right">
+              <span className="break-words font-medium">{key}</span>
+              <span className="text-muted-foreground min-w-0 break-words text-right">
                 {typeof value === "boolean"
                   ? value
                     ? "Có"
