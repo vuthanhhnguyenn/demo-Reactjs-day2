@@ -1,7 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import {
   createCrmPosition,
   deleteCrmPosition,
@@ -33,6 +38,8 @@ type PositionsClientProps = {
   initialSummary: GetCrmPositionsSummaryResponse;
 };
 
+const EMPTY_POSITIONS: Position[] = [];
+
 export function PositionsClient({
   initialData,
   initialSummary,
@@ -41,24 +48,28 @@ export function PositionsClient({
 
   const { filters, setFilters, clearFilters } = usePositionsFilters();
   const [editingPosition, setEditingPosition] = useState<Position | null>(null);
+  const positionsQueryParams = {
+    page: filters.page,
+    pageSize: POSITIONS_PAGE_SIZE,
+    search: filters.search,
+    role: filters.role,
+  };
+  const shouldUseInitialPositionsData =
+    filters.page === 1 && filters.search === "" && filters.role === null;
 
   const { data, isLoading, isError } = useQuery({
-    ...getCrmPositionsOptions({
-      page: filters.page,
-      pageSize: POSITIONS_PAGE_SIZE,
-      search: filters.search,
-      role: filters.role,
-    }),
-    initialData,
+    ...getCrmPositionsOptions(positionsQueryParams),
+    initialData: shouldUseInitialPositionsData ? initialData : undefined,
+    placeholderData: keepPreviousData,
   });
   const { data: summary } = useQuery({
     ...getCrmPositionsSummaryOptions(),
     initialData: initialSummary,
   });
 
-  const positions = data.positions;
-  const pagination = data.pagination ?? {
-    page: 1,
+  const positions = data?.positions ?? EMPTY_POSITIONS;
+  const pagination = data?.pagination ?? {
+    page: filters.page,
     pageSize: POSITIONS_PAGE_SIZE,
     totalItems: positions.length,
     totalPages: 1,
