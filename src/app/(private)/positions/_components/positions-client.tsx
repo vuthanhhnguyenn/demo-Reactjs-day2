@@ -61,10 +61,6 @@ export function PositionsClient({ initialPositions }: PositionsClientProps) {
         ...currentPositions,
         createdPosition,
       ]);
-
-      void queryClient.invalidateQueries({
-        queryKey: ["getCrmPositions"],
-      });
     },
   });
 
@@ -76,10 +72,6 @@ export function PositionsClient({ initialPositions }: PositionsClientProps) {
           position.id === updatedPosition.id ? updatedPosition : position,
         ),
       );
-
-      void queryClient.invalidateQueries({
-        queryKey: ["getCrmPositions"],
-      });
     },
   });
 
@@ -89,10 +81,6 @@ export function PositionsClient({ initialPositions }: PositionsClientProps) {
       updatePositionsCache((currentPositions) =>
         currentPositions.filter((position) => position.id !== deletedPositionId),
       );
-
-      void queryClient.invalidateQueries({
-        queryKey: ["getCrmPositions"],
-      });
 
       if (filters.id === deletedPositionId) {
         void setFilters({ id: null });
